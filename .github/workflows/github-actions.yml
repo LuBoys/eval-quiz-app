@@ -34,6 +34,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Échec volontaire pour démontrer le contrôle obligatoire
+        run: exit 1
+
       - name: Construire les images Docker
         run: docker compose build --pull
 
