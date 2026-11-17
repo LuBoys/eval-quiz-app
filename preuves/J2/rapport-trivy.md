@@ -49,7 +49,8 @@ Ce bloc affiche toutes les alertes pour refaire le rapport complet.
   trap 'rm -rf "$scan_dir"' EXIT
   docker compose config --images | while read -r image; do
     docker image save --output "$scan_dir/image.tar" "$image"
-    docker run --rm --mount "type=bind,source=$scan_dir,target=/scan" \
+    docker run --rm --user "$(id -u):$(id -g)" --env HOME=/scan \
+      --mount "type=bind,source=$scan_dir,target=/scan" \
       aquasec/trivy:0.76.2 image --cache-dir /scan/cache --scanners vuln \
       --input /scan/image.tar
   done

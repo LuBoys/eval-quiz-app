@@ -13,7 +13,8 @@ status=0
 for image in "$@"; do
   printf '\nScan Trivy de %s\n' "$image"
   docker image save --output "$scan_dir/image.tar" "$image"
-  if ! docker run --rm --mount "type=bind,source=$scan_dir,target=/scan" "$trivy_image" \
+  if ! docker run --rm --user "$(id -u):$(id -g)" --env HOME=/scan \
+    --mount "type=bind,source=$scan_dir,target=/scan" "$trivy_image" \
     image --cache-dir /scan/cache --scanners vuln --input /scan/image.tar \
     --no-progress --severity CRITICAL --exit-code 1; then
     status=1
