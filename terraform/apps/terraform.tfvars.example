@@ -1,0 +1,8 @@
+admin_password = ""
+jwt_secret     = ""
+min_replicas   = 1
+
+# admin_username = "admin"
+# database_url   = ""
+# resend_api_key = ""
+# from_email     = ""

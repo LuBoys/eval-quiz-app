@@ -1,5 +1,7 @@
 # Quiz App - Projet d'évaluation Conteneurisation
 
+Le déploiement Azure de ce groupe s’appelle `quizapp-lucas-mohamed`. [Guide Terraform](docs/12-terraform-azure.md)
+
 ## Mission
 
 Vous intégrez une équipe DevOps chargée de **conteneuriser, sécuriser et déployer** l'application **Quiz App** sur Microsoft Azure, puis d'automatiser ses livraisons.
@@ -7,6 +9,25 @@ Vous intégrez une équipe DevOps chargée de **conteneuriser, sécuriser et dé
 Le **code applicatif est fourni**. Votre mission concerne la conteneurisation, l'exploitation, la sécurité et le déploiement ; **ne modifiez pas la logique métier**. Une modification ciblée d'une question de quiz présente dans le code servira à démontrer le processus de livraison.
 
 L'application comporte un frontend, un backend et une base PostgreSQL. Elle peut utiliser un service d'envoi d'emails ; les fonctionnalités qui en dépendent doivent être configurées uniquement si les accès nécessaires sont fournis.
+
+## Démarrer en local
+
+Ouvre Docker Desktop. Une fois le fichier `.env` configuré, lance cette commande depuis la racine du projet.
+
+```bash
+docker compose up --build --wait
+```
+
+- [Quiz](http://localhost:8087)
+- [Administration](http://localhost:8087/gestion-quiz)
+- [Configuration et schéma local](docs/10-demarrage-local.md)
+- [Preuves du test local](preuves/J1/verification-locale.md)
+- [Rapport Trivy](preuves/J2/rapport-trivy.md)
+- [Configurer GitHub Actions et Azure](docs/11-configurer-cicd.md)
+- [Déployer sur Azure avec Terraform](docs/12-terraform-azure.md)
+- [Preuve du déploiement Azure](preuves/J4/deploiement-azure.md)
+- [Schéma de l’architecture cloud](docs/13-architecture-cloud.md)
+- [Dossier des preuves J0 à J6](preuves/README.md)
 
 ## Résultat attendu
 
@@ -49,3 +70,11 @@ Lisez les documents dans cet ordre :
 - Versionnez les fichiers de configuration, les scripts et les workflows **que vous produisez**.
 - Ne commitez jamais de mots de passe, URL PostgreSQL contenant des identifiants, clés API, secrets GitHub/GitLab ou fichiers `.env` réels.
 - Une démonstration validée reste acquise même si les ressources cloud sont supprimées ensuite.
+
+## Usage de l’IA
+
+Codex a aidé à lire le code fourni, à préparer Docker Compose, les Dockerfiles et le workflow GitHub Actions, et à diagnostiquer les problèmes de démarrage et d’enregistrement. Les vérifications locales ont été faites avec Docker Compose, Chrome, PostgreSQL, Trivy et actionlint. Les résultats figurent dans les preuves J1 et J2.
+
+Codex a aussi aidé à préparer la variante Terraform. Les deux configurations ont été validées avec `terraform validate`, puis vérifiées avec un fournisseur Azure simulé.
+
+Codex a aidé à documenter les jalons et à préparer le schéma cloud et la soutenance. Les preuves s’appuient sur Azure CLI, sur des tests de lecture et d’écriture du quiz et sur les états observés dans GitHub Actions. Les captures sont prises dans Chrome.

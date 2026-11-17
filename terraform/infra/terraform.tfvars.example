@@ -1,0 +1,11 @@
+project_name = "quizapp-lucas-mohamed"
+acr_name     = "quizapplucasmohamed"
+location     = "REGION_AUTORISEE"
+
+# Le groupe par défaut s’appelle rg-quizapp-lucas-mohamed.
+# Renseigne les deux lignes si tu réutilises un autre groupe existant.
+# resource_group_name         = "rg-quizapp-lucas-mohamed"
+# use_existing_resource_group = true
+
+# Renseigne le sujet affiché pour main dans ton fork si tu utilises GitHub Actions.
+# github_oidc_subject = "repo:proprietaire/fork-quiz:ref:refs/heads/main"
