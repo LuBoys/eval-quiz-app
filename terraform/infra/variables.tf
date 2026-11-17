@@ -1,3 +1,15 @@
+variable "project_name" {
+  description = "Nom du projet utilisé pour le site et ses ressources Azure."
+  type        = string
+  default     = "quizapp-lucas-mohamed"
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,30}[a-z0-9]$", var.project_name)) && !strcontains(var.project_name, "--")
+    error_message = "Le nom doit faire 2 à 32 caractères, commencer par une lettre minuscule et finir par une lettre minuscule ou un chiffre. Les tirets simples sont autorisés."
+  }
+}
+
 variable "location" {
   description = "Région Azure autorisée par l’abonnement étudiant."
   type        = string
@@ -12,7 +24,7 @@ variable "location" {
 variable "resource_group_name" {
   description = "Nom du groupe de ressources dédié au quiz."
   type        = string
-  default     = "rg-quiz-app"
+  default     = null
 }
 
 variable "use_existing_resource_group" {

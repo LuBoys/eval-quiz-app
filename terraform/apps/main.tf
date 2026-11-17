@@ -1,8 +1,11 @@
 locals {
-  backend_name  = "quiz-backend"
   backend_port  = 3007
-  frontend_name = "quiz-frontend"
   frontend_port = 8080
+  backend_domain = trimprefix(
+    azurerm_container_app.backend.ingress[0].fqdn,
+    "${var.infrastructure.backend_app_name}."
+  )
+  backend_host = "${var.infrastructure.backend_app_name}.internal.${trimprefix(local.backend_domain, "internal.")}"
 
   backend_secrets = merge(
     {
@@ -19,7 +22,7 @@ locals {
 }
 
 resource "azurerm_container_app" "backend" {
-  name                         = local.backend_name
+  name                         = var.infrastructure.backend_app_name
   resource_group_name          = var.infrastructure.resource_group_name
   container_app_environment_id = var.infrastructure.container_app_environment_id
   workload_profile_name        = "Consumption"
@@ -56,12 +59,12 @@ resource "azurerm_container_app" "backend" {
   }
 
   template {
-    min_replicas = 0
+    min_replicas = var.min_replicas
     max_replicas = 2
 
     container {
       name   = "backend"
-      image  = "${var.infrastructure.registry_login_server}/${local.backend_name}@${var.image_digests.backend}"
+      image  = "${var.infrastructure.registry_login_server}/quiz-backend@${var.image_digests.backend}"
       cpu    = 0.25
       memory = "0.5Gi"
 
@@ -105,7 +108,7 @@ resource "azurerm_container_app" "backend" {
 }
 
 resource "azurerm_container_app" "frontend" {
-  name                         = local.frontend_name
+  name                         = var.infrastructure.frontend_app_name
   resource_group_name          = var.infrastructure.resource_group_name
   container_app_environment_id = var.infrastructure.container_app_environment_id
   workload_profile_name        = "Consumption"
@@ -133,18 +136,18 @@ resource "azurerm_container_app" "frontend" {
   }
 
   template {
-    min_replicas = 0
+    min_replicas = var.min_replicas
     max_replicas = 2
 
     container {
       name   = "frontend"
-      image  = "${var.infrastructure.registry_login_server}/${local.frontend_name}@${var.image_digests.frontend}"
+      image  = "${var.infrastructure.registry_login_server}/quiz-frontend@${var.image_digests.frontend}"
       cpu    = 0.25
       memory = "0.5Gi"
 
       env {
         name  = "BACKEND_URL"
-        value = "https://${azurerm_container_app.backend.ingress[0].fqdn}"
+        value = "https://${local.backend_host}"
       }
 
       readiness_probe {

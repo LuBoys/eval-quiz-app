@@ -33,3 +33,9 @@ Fin du quiz avec confirmation d’enregistrement.
 Les deux scores de démonstration après recréation des conteneurs.
 
 ![Scores dans l’administration](admin-apres-recreation.png)
+
+## Test avant la PR de livraison
+
+Un projet Docker Compose de test nommé `quiz-preuves-j1` a démarré avec le PostgreSQL local. Le frontend a servi la question « Quelle commande Docker lit un Dockerfile pour construire une image ? ». L’API a enregistré vingt réponses, dont une expirée, avec un score fictif de **19/20**. Après `docker compose up --no-build --force-recreate --wait`, les trois services étaient `healthy`, le volume `quiz-preuves-j1_quiz_data` existait et l’administration renvoyait le même score.
+
+Un deuxième essai depuis le formulaire du navigateur a parcouru le quiz Docker jusqu’au bilan. La question modifiée est apparue et le site a affiché **Résultat enregistré.** avec le score fictif de **5/20**.

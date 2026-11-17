@@ -32,6 +32,8 @@ Le 17 novembre 2026, les trois images ont aussi été construites en `linux/amd6
 
 ## Rejouer le contrôle CRITICAL
 
+Le 17 novembre, le build de test de la question modifiée a aussi passé `scripts/scan-images.sh` sur les trois images Docker Compose. Le code de sortie était `0`. [Test de la question](../J1/verification-locale.md#test-avant-la-pr-de-livraison)
+
 Le workflow appelle `scripts/scan-images.sh` avec les options Trivy `--severity CRITICAL --exit-code 1`. Lance ces commandes pour rejouer le contrôle sur les images locales.
 
 ```bash

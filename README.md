@@ -26,6 +26,8 @@ docker compose up --build --wait
 - [Configurer GitHub Actions et Azure](docs/11-configurer-cicd.md)
 - [Déployer sur Azure avec Terraform](docs/12-terraform-azure.md)
 - [Preuve du déploiement Azure](preuves/J4/deploiement-azure.md)
+- [Schéma de l’architecture cloud](docs/13-architecture-cloud.md)
+- [Dossier des preuves J0 à J6](preuves/README.md)
 
 ## Résultat attendu
 
@@ -74,3 +76,5 @@ Lisez les documents dans cet ordre :
 Codex a aidé à lire le code fourni, à préparer Docker Compose, les Dockerfiles et le workflow GitHub Actions, et à diagnostiquer les problèmes de démarrage et d’enregistrement. Les vérifications locales ont été faites avec Docker Compose, Chrome, PostgreSQL, Trivy et actionlint. Les résultats figurent dans les preuves J1 et J2.
 
 Codex a aussi aidé à préparer la variante Terraform. Les deux configurations ont été validées avec `terraform validate`, puis vérifiées avec un fournisseur Azure simulé.
+
+Codex a aidé à documenter les jalons et à préparer le schéma cloud et la soutenance. Les preuves s’appuient sur Azure CLI, sur des tests de lecture et d’écriture du quiz et sur les états observés dans GitHub Actions. Les captures sont prises dans Chrome.

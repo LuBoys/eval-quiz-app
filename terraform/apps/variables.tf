@@ -5,6 +5,8 @@ variable "infrastructure" {
     registry_login_server        = string
     container_app_environment_id = string
     pull_identity_id             = string
+    frontend_app_name            = optional(string, "quiz-frontend")
+    backend_app_name             = optional(string, "quiz-backend")
   })
   nullable = false
 }
@@ -22,6 +24,18 @@ variable "image_digests" {
       for digest in values(var.image_digests) : can(regex("^sha256:[a-f0-9]{64}$", digest))
     ])
     error_message = "Renseigne les deux digests ACR au format sha256 suivi de 64 caractères hexadécimaux."
+  }
+}
+
+variable "min_replicas" {
+  description = "Nombre minimum de conteneurs lancés par application."
+  type        = number
+  default     = 0
+  nullable    = false
+
+  validation {
+    condition     = contains([0, 1, 2], var.min_replicas)
+    error_message = "Le nombre minimum de réplicas doit être un entier de 0 à 2."
   }
 }
 

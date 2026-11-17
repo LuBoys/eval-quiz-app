@@ -129,3 +129,14 @@ Dans l’onglet **Secrets**, ajoute `ADMIN_PASSWORD`, `JWT_SECRET` et `DATABASE_
 Au premier déploiement, le script crée le backend interne sur le port 3007 et le frontend public sur le port 8080. Le frontend appelle le backend en HTTPS à l’intérieur du même environnement. Les fusions suivantes mettent à jour leurs images. Le job vérifie les révisions et teste `/health` à l’adresse publique du quiz. [Script de déploiement](../scripts/deploy.sh) · [Réseau dans Azure Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/connect-apps)
 
 Pour la soutenance, garde le lien de la Pull Request, l’exécution du scan, puis l’exécution sur `main` avec les tags ACR et les révisions Azure. Vérifie un score enregistré dans l’administration pour démontrer en plus la connexion à Neon.
+
+## Nettoyer un groupe créé avec Azure CLI
+
+Depuis la racine du dépôt, vérifie d’abord le contenu du groupe de ressources dédié au quiz. Lance ensuite la suppression avec `--apply` pour ce groupe précis.
+
+```bash
+scripts/destroy.sh NOM_DU_GROUPE
+scripts/destroy.sh NOM_DU_GROUPE --apply
+```
+
+Pour les ressources suivies par Terraform, utilise [les commandes du guide Terraform](12-terraform-azure.md#supprimer-les-ressources-du-quiz). [Test du nettoyage Azure CLI](../preuves/J3/creation-cli-acr.md)

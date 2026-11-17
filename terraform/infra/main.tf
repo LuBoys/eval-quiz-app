@@ -3,19 +3,22 @@ data "azurerm_client_config" "current" {}
 resource "azurerm_resource_group" "quiz" {
   count = var.use_existing_resource_group ? 0 : 1
 
-  name     = var.resource_group_name
+  name     = local.requested_group_name
   location = var.location
 }
 
 data "azurerm_resource_group" "existing_quiz" {
   count = var.use_existing_resource_group ? 1 : 0
 
-  name = var.resource_group_name
+  name = local.requested_group_name
 }
 
 locals {
-  resource_group_name = var.use_existing_resource_group ? data.azurerm_resource_group.existing_quiz[0].name : azurerm_resource_group.quiz[0].name
-  resource_group_id   = var.use_existing_resource_group ? data.azurerm_resource_group.existing_quiz[0].id : azurerm_resource_group.quiz[0].id
+  requested_group_name = coalesce(var.resource_group_name, "rg-${var.project_name}")
+  resource_group_name  = var.use_existing_resource_group ? data.azurerm_resource_group.existing_quiz[0].name : azurerm_resource_group.quiz[0].name
+  resource_group_id    = var.use_existing_resource_group ? data.azurerm_resource_group.existing_quiz[0].id : azurerm_resource_group.quiz[0].id
+  frontend_app_name    = var.project_name
+  backend_app_name     = "quiz-backend"
 }
 
 resource "azurerm_container_registry" "quiz" {
@@ -40,7 +43,7 @@ resource "azurerm_container_app_environment" "quiz" {
 }
 
 resource "azurerm_user_assigned_identity" "acr_pull" {
-  name                = "quiz-acr-pull"
+  name                = "${var.project_name}-acr-pull"
   resource_group_name = local.resource_group_name
   location            = var.location
 }
@@ -56,7 +59,7 @@ resource "azurerm_role_assignment" "acr_pull" {
 resource "azurerm_user_assigned_identity" "github" {
   count = var.github_oidc_subject == null ? 0 : 1
 
-  name                = "quiz-github-deploy"
+  name                = "${var.project_name}-github-deploy"
   resource_group_name = local.resource_group_name
   location            = var.location
 }

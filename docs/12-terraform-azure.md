@@ -31,7 +31,7 @@ done
 cp terraform/infra/terraform.tfvars.example terraform/infra/terraform.tfvars
 ```
 
-Dans `terraform/infra/terraform.tfvars`, `project_name` donne son nom au site, à l’environnement et aux identités. Choisis un `acr_name` disponible mondialement et remplace `REGION_AUTORISEE` par une région permise par ton abonnement. Si ton groupe existe déjà, renseigne son nom dans `resource_group_name` et mets `use_existing_resource_group = true` avant la première application. `location` fixe la région du registre et des identités. `environment_location` permet de choisir une autre région pour les applications. Pour reprendre des ressources que tu as déjà créées dans Azure, importe-les dans Terraform avant de les gérer avec lui. [Vérifier les régions autorisées](11-configurer-cicd.md#préparer-azure-une-fois) · [Importer une ressource](https://developer.hashicorp.com/terraform/cli/commands/import)
+Dans `terraform/infra/terraform.tfvars`, `project_name` donne son nom au site et aux identités. Choisis un `acr_name` disponible mondialement et remplace `REGION_AUTORISEE` par une région permise par ton abonnement. Si ton groupe existe déjà, renseigne son nom dans `resource_group_name` et mets `use_existing_resource_group = true` avant la première application. `location` fixe la région du registre, des identités et de `quiz-env`. Pour reprendre des ressources que tu as déjà créées dans Azure, importe-les dans Terraform avant de les gérer avec lui. [Vérifier les régions autorisées](11-configurer-cicd.md#préparer-azure-une-fois) · [Importer une ressource](https://developer.hashicorp.com/terraform/cli/commands/import)
 
 Pour activer le déploiement GitHub Actions, ajoute le `github_oidc_subject` exact de la branche `main` de ton fork. Le format dépend des paramètres OIDC du fork. [Préparer OIDC](11-configurer-cicd.md#préparer-azure-une-fois)
 
@@ -128,11 +128,11 @@ Après la création, le workflow existant utilise `scripts/deploy.sh` pour publi
 
 ## Voir les logs du backend
 
-Dans le portail Azure, ouvre **Container Apps → quizapp-lucas-mohamed-backend → Monitoring → Log stream**, puis sélectionne **Console**. Depuis le terminal connecté à Azure, utilise cette commande et arrête le flux avec **Ctrl+C**. [Flux de logs Azure](https://learn.microsoft.com/en-us/azure/container-apps/log-streaming)
+Dans le portail Azure, ouvre **Container Apps → quiz-backend → Monitoring → Log stream**, puis sélectionne **Console**. Depuis le terminal connecté à Azure, utilise cette commande et arrête le flux avec **Ctrl+C**. [Flux de logs Azure](https://learn.microsoft.com/en-us/azure/container-apps/log-streaming)
 
 ```bash
 az containerapp logs show -g rg-quizapp-lucas-mohamed \
-  -n quizapp-lucas-mohamed-backend --type console --follow
+  -n quiz-backend --type console --follow
 ```
 
 ## Utiliser le sous-domaine attribué

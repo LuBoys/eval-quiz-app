@@ -74,7 +74,7 @@ app_options=(
   --user-assigned "$identity_id"
   --registry-server "$registry_server"
   --registry-identity "$identity_id"
-  --min-replicas 0 --max-replicas 2
+  --min-replicas 1 --max-replicas 2
   --cpu 0.25 --memory 0.5Gi
   --revisions-mode single
   --only-show-errors --output none
