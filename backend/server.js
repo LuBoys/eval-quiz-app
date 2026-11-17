@@ -47,12 +47,14 @@ app.use(generalLimiter);
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
+  enableChannelBinding: true,
   max: 20, // Max connections per backend instance
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
 });
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resendApiKey = process.env.RESEND_API_KEY;
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 // Admin config
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
@@ -322,7 +324,8 @@ app.post("/api/results", resultsLimiter, async (req, res) => {
           quizResultId,
           answer.questionIndex,
           answer.questionText,
-          answer.userAnswer,
+          // A timed-out question has no answer, and the schema expects text.
+          answer.userAnswer === null ? "" : answer.userAnswer,
           answer.correctAnswer,
           answer.isCorrect,
           answer.timeSpentMs,
@@ -332,19 +335,20 @@ app.post("/api/results", resultsLimiter, async (req, res) => {
 
     await client.query("COMMIT");
 
-    // Get user info for email
-    const userQuery = await pool.query(
-      "SELECT firstname, email FROM users WHERE id = $1",
-      [userId]
-    );
-    const user = userQuery.rows[0];
-
-    // Send email with results
-    await sendResultEmail(user, score, totalQuestions, answers);
+    let emailSent = false;
+    if (resend) {
+      const userQuery = await pool.query(
+        "SELECT firstname, email FROM users WHERE id = $1",
+        [userId]
+      );
+      const user = userQuery.rows[0];
+      emailSent = await sendResultEmail(user, score, totalQuestions, answers);
+    }
 
     res.status(201).json({
-      message: "Results saved and email sent",
+      message: emailSent ? "Results saved and email sent" : "Results saved",
       quizResultId,
+      emailSent,
     });
   } catch (error) {
     await client.query("ROLLBACK");
@@ -422,14 +426,17 @@ async function sendResultEmail(user, score, totalQuestions, answers) {
 
     if (result.error) {
       console.error(`Failed to send email to ${user.email}:`, result.error);
-    } else {
-      console.log(
-        `Email sent successfully to ${user.email}, id:`,
-        result.data?.id
-      );
+      return false;
     }
+
+    console.log(
+      `Email sent successfully to ${user.email}, id:`,
+      result.data?.id
+    );
+    return true;
   } catch (error) {
     console.error(`Failed to send email to ${user.email}:`, error);
+    return false;
   }
 }
 

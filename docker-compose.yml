@@ -1,0 +1,65 @@
+services:
+  frontend:
+    build: .
+    ports:
+      - "127.0.0.1:${QUIZ_PORT:-8087}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+      start_interval: 1s
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-}
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-user-test}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Renseigne POSTGRES_PASSWORD dans .env}
+      PGDATABASE: ${POSTGRES_DB:-db-test}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Renseigne ADMIN_PASSWORD dans .env}
+      JWT_SECRET: ${JWT_SECRET:?Renseigne JWT_SECRET dans .env}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      FROM_EMAIL: ${FROM_EMAIL:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3007/health').then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+      start_interval: 1s
+    restart: unless-stopped
+
+  db:
+    build: ./database
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-user-test}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Renseigne POSTGRES_PASSWORD dans .env}
+      POSTGRES_DB: ${POSTGRES_DB:-db-test}
+    volumes:
+      - quiz_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -q -h 127.0.0.1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+      start_interval: 2s
+    restart: unless-stopped
+
+volumes:
+  quiz_data:
