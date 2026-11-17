@@ -4,9 +4,175 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Quiz App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&amp;display=swap" rel="stylesheet" />
   </head>
   <body>
-    <div id="app"></div>
+    <main id="app">
+      <section class="welcome" aria-labelledby="welcome-title">
+        <h1 id="welcome-title">Bienvenue dans le quiz.</h1>
+        <div class="welcome-action">
+          <button class="welcome-button" type="button">
+            <span class="welcome-metal" aria-hidden="true"></span>
+            <span>Commencer</span>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <template id="registration-template">
+      <section id="registration" class="panel registration" aria-labelledby="registration-title">
+        <header class="registration-header">
+          <h1 id="registration-title" tabindex="-1">Quiz App</h1>
+          <p>Tu as 30 secondes pour répondre à chaque question.</p>
+        </header>
+
+        <form id="registration-form" class="registration-form">
+          <fieldset class="registration-fields">
+            <fieldset class="subject-field">
+              <legend>Sujet du quiz</legend>
+              <div class="subject-options"></div>
+            </fieldset>
+            <div class="form-field">
+              <label for="firstname">Prénom</label>
+              <input id="firstname" name="firstname" autocomplete="given-name" required />
+            </div>
+            <div class="form-field">
+              <label for="email">Adresse e-mail</label>
+              <input type="email" id="email" name="email" autocomplete="email" required />
+            </div>
+            <div class="hp-field" aria-hidden="true">
+              <label for="website">Website</label>
+              <input id="website" name="website" tabindex="-1" autocomplete="off" />
+            </div>
+          </fieldset>
+
+          <p class="form-error" role="alert"></p>
+          <button class="button start-button" type="submit">
+            <span class="button-label">Commencer le quiz</span>
+            <span class="button-arrow" aria-hidden="true">→</span>
+          </button>
+        </form>
+      </section>
+    </template>
+
+    <template id="quiz-template">
+      <section class="quiz">
+        <header class="quiz-header">
+          <div class="quiz-meta">
+            <p class="quiz-position">
+              <span class="question-counter"></span>
+              <span aria-hidden="true">·</span>
+              <span class="quiz-subject"></span>
+            </p>
+            <div class="question-timer" role="timer" aria-label="Temps restant">
+              <span class="timer-ring" aria-hidden="true"></span>
+              <span class="timer-value"></span>
+            </div>
+          </div>
+          <div class="progress" role="progressbar" aria-label="Questions terminées" aria-valuenow="0">
+            <div class="progress-fill"></div>
+          </div>
+        </header>
+        <div class="question-slot"></div>
+      </section>
+    </template>
+
+    <template id="question-template">
+      <form class="panel question">
+        <h1 id="question-title" class="question-title" tabindex="-1"></h1>
+        <fieldset class="answers" aria-labelledby="question-title"></fieldset>
+        <div class="question-actions">
+          <div class="answer-feedback" role="status">
+            <p class="feedback-title"></p>
+            <p class="feedback-detail"></p>
+          </div>
+          <button class="button question-button" type="submit" disabled>
+            <span class="button-label">Valider</span>
+            <span class="advance-countdown" aria-hidden="true"></span>
+            <span class="button-arrow" aria-hidden="true">→</span>
+          </button>
+        </div>
+      </form>
+    </template>
+
+    <template id="answer-template">
+      <label class="answer-choice">
+        <input type="radio" name="answer" class="visually-hidden" />
+        <span class="answer-card">
+          <span class="answer-letter" aria-hidden="true"></span>
+          <span class="answer-text"></span>
+          <span class="answer-status" hidden>
+            <span class="status-icon" aria-hidden="true"></span>
+            <span class="status-label"></span>
+          </span>
+        </span>
+      </label>
+    </template>
+
+    <template id="results-template">
+      <section class="results" aria-labelledby="results-title">
+        <div class="panel results-card">
+          <header class="results-header">
+            <div>
+              <p class="results-meta">Bilan <span aria-hidden="true">·</span> <span class="results-subject"></span></p>
+              <h1 id="results-title" tabindex="-1">Quiz terminé !</h1>
+            </div>
+            <div class="result-score">
+              <div class="score-percent" aria-hidden="true"></div>
+              <span class="visually-hidden score-accessible"></span>
+              <p>Taux de réussite</p>
+            </div>
+          </header>
+          <dl class="result-stats">
+            <div>
+              <dt>Bonnes réponses</dt>
+              <dd class="correct-count"></dd>
+            </div>
+            <div>
+              <dt>Meilleure série</dt>
+              <dd class="best-streak"></dd>
+            </div>
+            <div>
+              <dt>Temps moyen</dt>
+              <dd class="average-time"></dd>
+            </div>
+          </dl>
+          <div class="result-actions">
+            <button class="button replay-button" type="button">
+              <span aria-hidden="true">↻</span>
+              Rejouer
+            </button>
+            <p class="saving-message" role="status"></p>
+          </div>
+        </div>
+
+        <section class="review" aria-labelledby="review-title">
+          <header class="review-header">
+            <h2 id="review-title">Relecture des réponses</h2>
+            <p class="review-count"></p>
+          </header>
+          <ol class="review-list" role="list"></ol>
+        </section>
+      </section>
+    </template>
+
+    <template id="review-template">
+      <li class="review-row">
+        <div class="review-meta">
+          <span class="review-number"></span>
+          <span class="review-status">
+            <span class="status-icon" aria-hidden="true"></span>
+            <span class="status-label"></span>
+          </span>
+        </div>
+        <h3 class="review-question"></h3>
+        <p class="review-chosen">Ta réponse <span aria-hidden="true">·</span> <strong></strong></p>
+        <p class="review-correct">Bonne réponse <span aria-hidden="true">·</span> <strong></strong></p>
+      </li>
+    </template>
+
     <script type="module" src="/main.js"></script>
   </body>
 </html>

@@ -1,28 +1,138 @@
+import { liquidMetalFragmentShader, ShaderMount } from "@paper-design/shaders";
 import "./style.css";
 
 const API_URL = "/api";
-const TIMEOUT = 4000;
 const QUESTION_TIME = 30;
+const ANSWER_FEEDBACK_TIME = 4000;
+const TIMEOUT_FEEDBACK_TIME = 2000;
 
-const app = document.querySelector("#app");
-
-let currentUser = null;
-let Questions = [];
-
-// Précharger tous les modules de questions avec Vite
+const subjects = new Map([
+  ["docker", "Docker"],
+  ["ansible", "Ansible"],
+  ["devops", "DevOps"],
+  ["cicd", "CI/CD"],
+  ["scm", "Git et SCM"],
+  ["usine-logicielle", "Usine logicielle"],
+]);
 const questionModules = import.meta.glob("./questions_*.js");
 
-// Sujets disponibles (nom affiché -> chemin du module)
-const AVAILABLE_SUBJECTS = {
-  docker: "./questions_docker.js",
-  ansible: "./questions_ansible.js",
-  devops: "./questions_devops.js",
-  cicd: "./questions_cicd.js",
-  scm: "./questions_scm.js",
-  "usine-logicielle": "./questions_usine-logicielle.js",
-};
+const app = document.querySelector("#app");
+const registration = cloneTemplate("registration-template");
+const registrationForm = registration.querySelector("form");
+const subjectOptions = registrationForm.querySelector(".subject-options");
 
-// Mélange aléatoire d'un tableau (Fisher-Yates)
+for (const [index, [value, label]] of [...subjects].entries()) {
+  const option = document.createElement("label");
+  const input = document.createElement("input");
+  const pill = document.createElement("span");
+
+  option.className = "subject-option";
+  option.style.setProperty("--order", index);
+  input.className = "visually-hidden";
+  input.type = "radio";
+  input.name = "subject";
+  input.value = value;
+  input.required = true;
+  pill.className = "subject-pill";
+  pill.textContent = label;
+  option.append(input, pill);
+  subjectOptions.append(option);
+}
+registrationForm.addEventListener("submit", handleRegistration);
+prepareWelcome();
+
+function cloneTemplate(id) {
+  return document.getElementById(id).content.firstElementChild.cloneNode(true);
+}
+
+function prepareWelcome() {
+  const welcome = app.querySelector(".welcome");
+  const heading = welcome.querySelector("h1");
+  const button = welcome.querySelector("button");
+  const metal = button.querySelector(".welcome-metal");
+  const words = heading.textContent.trim().split(/\s+/);
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let shader;
+
+  welcome.style.setProperty("--word-count", words.length);
+  heading.replaceChildren(...words.flatMap((word, index) => {
+    const part = document.createElement("span");
+    part.className = "welcome-word";
+    part.style.setProperty("--word-order", index);
+    part.textContent = word;
+    return [part, " "];
+  }));
+
+  function updateMetalSpeed() {
+    const speed = button.disabled ? 2.4 : button.matches(":hover") ? 1 : 0.6;
+    shader?.setSpeed(reducedMotion.matches ? 0 : speed);
+  }
+
+  button.addEventListener("pointerenter", updateMetalSpeed);
+  button.addEventListener("pointerleave", updateMetalSpeed);
+  reducedMotion.addEventListener("change", updateMetalSpeed);
+  button.addEventListener("click", async (event) => {
+    button.disabled = true;
+    if (!reducedMotion.matches) addWelcomeRipple(button, event);
+    updateMetalSpeed();
+    welcome.classList.add("is-leaving");
+
+    const exitAnimations = welcome.getAnimations({ subtree: true })
+      .filter((animation) => animation.animationName === "welcome-out");
+    await Promise.allSettled(exitAnimations.map((animation) => animation.finished));
+
+    reducedMotion.removeEventListener("change", updateMetalSpeed);
+    shader?.dispose();
+    showScreen(registration);
+  }, { once: true });
+
+  try {
+    shader = new ShaderMount(metal, liquidMetalFragmentShader, {
+      u_repetition: 4,
+      u_softness: 0.5,
+      u_shiftRed: 0.3,
+      u_shiftBlue: 0.3,
+      u_distortion: 0,
+      u_contour: 0,
+      u_angle: 45,
+      u_scale: 8,
+      u_shape: 1,
+      u_fit: 1,
+      u_originX: 0.5,
+      u_originY: 0.5,
+      u_offsetX: 0.1,
+      u_offsetY: -0.1,
+    });
+    updateMetalSpeed();
+  } catch {
+    // The CSS gradient is the fallback when WebGL is unavailable.
+    metal.replaceChildren();
+  }
+}
+
+function addWelcomeRipple(button, event) {
+  const { left, top, width, height } = button.getBoundingClientRect();
+  const ripple = document.createElement("span");
+  ripple.className = "welcome-ripple";
+  ripple.setAttribute("aria-hidden", "true");
+  ripple.style.left = `${event.detail ? event.clientX - left : width / 2}px`;
+  ripple.style.top = `${event.detail ? event.clientY - top : height / 2}px`;
+  button.append(ripple);
+}
+
+function showScreen(screen) {
+  screen.classList.remove("is-leaving");
+  app.replaceChildren(screen);
+  window.scrollTo(0, 0);
+  screen.querySelector("h1").focus({ preventScroll: true });
+}
+
+async function leaveScreen(screen) {
+  screen.classList.add("is-leaving");
+  const animation = screen.getAnimations().find((item) => item.animationName === "screen-out");
+  await animation?.finished.catch(() => {});
+}
+
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -31,376 +141,330 @@ function shuffleArray(array) {
   return array;
 }
 
-// Show registration form on load
-displayRegistrationForm();
-
-function displayRegistrationForm() {
-  app.innerHTML = `
-    <h1>Quiz App</h1>
-    <p>Testez vos connaissances !</p>
-    <form id="registration-form" class="registration-form">
-      <div class="form-group">
-        <label for="firstname">Prénom</label>
-        <input type="text" id="firstname" name="firstname" required placeholder="Votre prénom">
-      </div>
-      <div class="form-group">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" required placeholder="votre@email.com">
-        <small class="form-hint">Vos résultats sont envoyés par email si l’envoi est activé.</small>
-      </div>
-      <div class="form-group">
-        <label for="subject">Sujet du quiz</label>
-        <input type="text" id="subject" name="subject" required placeholder="Ex: docker">
-      </div>
-      <!-- Honeypot field - hidden from real users -->
-      <div class="form-group hp-field" aria-hidden="true">
-        <label for="website">Website</label>
-        <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
-      </div>
-      <button type="submit">Commencer le quiz</button>
-    </form>
-  `;
-
-  const form = document.querySelector("#registration-form");
-  form.addEventListener("submit", handleRegistration);
-}
-
 async function handleRegistration(event) {
   event.preventDefault();
+  const submitButton = registrationForm.querySelector("button");
+  if (submitButton.disabled) return;
 
-  const firstname = document.querySelector("#firstname").value;
-  const email = document.querySelector("#email").value;
-  const subject = document.querySelector("#subject").value;
-  const website = document.querySelector("#website").value; // Honeypot
+  const { firstname, email, subject, website } = Object.fromEntries(
+    new FormData(registrationForm),
+  );
+  const subjectLabel = subjects.get(subject);
+  const loadQuestions = questionModules[`./questions_${subject}.js`];
+  const fields = registrationForm.querySelector("fieldset");
+  const buttonLabel = submitButton.querySelector(".button-label");
+  const errorMessage = registrationForm.querySelector(".form-error");
 
-  const submitButton = document.querySelector("#registration-form button");
-  submitButton.disabled = true;
-  submitButton.textContent = "Chargement...";
-
-  // Vérifier que le sujet est valide
-  if (!AVAILABLE_SUBJECTS[subject]) {
-    alert("Veuillez choisir un sujet valide.");
-    submitButton.disabled = false;
-    submitButton.textContent = "Commencer le quiz";
+  if (!subjectLabel || !loadQuestions) {
+    errorMessage.textContent = "Choisis un sujet.";
     return;
   }
 
-  try {
-    // Charger dynamiquement les questions du sujet choisi
-    const modulePath = AVAILABLE_SUBJECTS[subject];
-    const questionsModule = await questionModules[modulePath]();
-    Questions = shuffleArray([...questionsModule.Questions]);
+  errorMessage.textContent = "";
+  fields.disabled = true;
+  submitButton.disabled = true;
+  buttonLabel.textContent = "Chargement…";
 
+  try {
+    const { Questions } = await loadQuestions();
+    const questions = shuffleArray([...Questions]);
     const response = await fetch(`${API_URL}/users`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ firstname, email, website }),
     });
 
-    if (!response.ok) {
-      throw new Error("Erreur lors de l'inscription");
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    currentUser = await response.json();
-    startQuiz();
+    const user = await response.json();
+    await leaveScreen(registration);
+    startQuiz(questions, subjectLabel, user);
   } catch (error) {
-    console.error("Registration error:", error);
+    console.error("Erreur au démarrage du quiz", error);
+    errorMessage.textContent = "Le quiz n’a pas pu démarrer. Réessaie dans un instant.";
+  } finally {
+    fields.disabled = false;
     submitButton.disabled = false;
-    submitButton.textContent = "Commencer le quiz";
-    alert("Erreur lors de l'inscription. Veuillez réessayer.");
+    buttonLabel.textContent = "Commencer le quiz";
   }
 }
 
-function startQuiz() {
-  let currentQuestion = 0;
-  let score = 0;
-  let questionStartTime = null;
-  const answersData = [];
+function formatNumber(number) {
+  return String(number).padStart(2, "0");
+}
 
-  let currentQuestionTimer = null;
+function formatAnswer(answer) {
+  return answer.replace(/^[A-Z]\.\s+/, "");
+}
 
-  displayQuestion(currentQuestion);
+function setStatus(element, label, isCorrect) {
+  element.hidden = false;
+  element.classList.add(isCorrect ? "status-correct" : "status-wrong");
+  element.querySelector(".status-icon").textContent = isCorrect ? "✓" : "×";
+  element.querySelector(".status-label").textContent = label;
+}
 
-  function clean() {
-    if (currentQuestionTimer) {
-      clearInterval(currentQuestionTimer);
-      currentQuestionTimer = null;
-    }
-    while (app.firstElementChild) {
-      app.firstElementChild.remove();
-    }
-    const progress = getProgressBar(Questions.length, currentQuestion);
-    app.appendChild(progress);
+function createChoice(answer, index) {
+  const choice = cloneTemplate("answer-template");
+  choice.style.setProperty("--order", index);
+  choice.querySelector("input").value = index;
+  choice.querySelector(".answer-letter").textContent = String.fromCharCode(65 + index);
+  choice.querySelector(".answer-text").textContent = formatAnswer(answer);
+  return choice;
+}
 
-  }
+function startQuiz(questions, subject, user) {
+  const quiz = cloneTemplate("quiz-template");
+  const progress = quiz.querySelector(".progress");
+  const timer = quiz.querySelector(".question-timer");
+  const timerRing = timer.querySelector(".timer-ring");
+  const timerValue = timer.querySelector(".timer-value");
+  const counter = quiz.querySelector(".question-counter");
+  const slot = quiz.querySelector(".question-slot");
+  const answers = [];
 
-  function displayQuestion(index) {
-    clean();
-    const question = Questions[index];
+  quiz.querySelector(".quiz-subject").textContent = subject;
+  progress.setAttribute("aria-valuemax", questions.length);
+  app.replaceChildren(quiz);
+  showQuestion();
 
-    if (!question) {
-      displayFinishMessage();
-      return;
-    }
+  function showQuestion() {
+    const index = answers.length;
+    const question = questions[index];
+    const card = cloneTemplate("question-template");
+    const title = card.querySelector(".question-title");
+    const fieldset = card.querySelector(".answers");
+    const submitButton = card.querySelector("button");
+    const buttonLabel = submitButton.querySelector(".button-label");
+    const countdown = submitButton.querySelector(".advance-countdown");
+    const choices = question.answers.map(createChoice);
 
-    questionStartTime = Date.now();
+    counter.textContent = `${formatNumber(index + 1)} / ${formatNumber(questions.length)}`;
+    title.textContent = question.question;
+    fieldset.append(...choices);
+    slot.replaceChildren(card);
+    window.scrollTo(0, 0);
+    title.focus({ preventScroll: true });
 
-    const answered = index;
-    const remaining = Questions.length - index;
-    const counter = document.createElement("p");
-    counter.className = "question-counter";
-    counter.innerHTML = `Question <strong>${index + 1}</strong> sur <strong>${Questions.length}</strong> &nbsp;·&nbsp; <span class="answered">${answered} répondue${answered > 1 ? "s" : ""}</span> &nbsp;·&nbsp; <span class="remaining">${remaining} restante${remaining > 1 ? "s" : ""}</span> &nbsp;·&nbsp; <span class="question-timer-inline" id="question-timer">${QUESTION_TIME}s</span>`;
-    app.appendChild(counter);
+    const startedAt = performance.now();
+    const deadline = startedAt + QUESTION_TIME * 1000;
+    let secondsLeft = -1;
+    let advanceAt = null;
+    let advancing = false;
+    const interval = window.setInterval(updateTimer, 200);
+    updateTimer();
 
-    const title = getTitleElement(question.question);
-    app.appendChild(title);
-    const answersDiv = createAnswers(question.answers);
-    app.appendChild(answersDiv);
+    fieldset.addEventListener("change", () => {
+      submitButton.disabled = false;
+    });
 
-    const submitButton = getSubmitButton();
-    submitButton.addEventListener("click", submit);
-    app.appendChild(submitButton);
-
-    let timeLeft = QUESTION_TIME;
-    currentQuestionTimer = setInterval(() => {
-      timeLeft--;
-      const timerEl = document.getElementById("question-timer");
-      if (timerEl) {
-        timerEl.textContent = `${timeLeft}s`;
-        if (timeLeft <= 10) timerEl.classList.add("timer-warning");
+    card.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (advanceAt !== null) {
+        advance();
+        return;
       }
-      if (timeLeft <= 0) {
-        clearInterval(currentQuestionTimer);
-        currentQuestionTimer = null;
-        timeoutSubmit();
+
+      const selected = fieldset.querySelector("input:checked");
+      if (!selected) return;
+
+      const now = performance.now();
+      if (now >= deadline) {
+        updateTimer();
+      } else {
+        recordAnswer(Number(selected.value), now);
       }
-    }, 1000);
-  }
+    });
 
-  async function displayFinishMessage() {
-    const h1 = document.createElement("h1");
-    h1.innerText = "Bravo ! Tu as terminé le quiz.";
-    const p = document.createElement("p");
-    p.innerText = `Tu as eu un score de ${score} sur ${Questions.length} !`;
+    function updateTimer() {
+      const now = performance.now();
 
-    app.appendChild(h1);
-    app.appendChild(p);
+      if (advanceAt !== null) {
+        if (now >= advanceAt) {
+          advance();
+        } else {
+          const nextSeconds = Math.ceil((advanceAt - now) / 1000);
+          const label = `(${nextSeconds} s)`;
+          if (countdown.textContent !== label) countdown.textContent = label;
+        }
+        return;
+      }
 
-    const savingP = document.createElement("p");
-    savingP.innerText = "Enregistrement des résultats en cours...";
-    savingP.className = "saving-message";
-    app.appendChild(savingP);
+      const remaining = Math.max(0, Math.ceil((deadline - now) / 1000));
+      if (remaining === secondsLeft) return;
 
-    try {
-      const response = await fetch(`${API_URL}/results`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: currentUser.id,
-          score,
-          totalQuestions: Questions.length,
-          answers: answersData,
-        }),
+      secondsLeft = remaining;
+      timerValue.textContent = `${formatNumber(remaining)} s`;
+      timerRing.style.setProperty("--remaining-time", `${(remaining / QUESTION_TIME) * 100}%`);
+      timer.classList.toggle("timer-warning", remaining <= 10);
+
+      if (remaining === 0) recordAnswer(null, now);
+    }
+
+    function recordAnswer(selectedIndex, now) {
+      const timedOut = selectedIndex === null;
+      const userAnswer = timedOut ? null : question.answers[selectedIndex];
+      const isCorrect = userAnswer === question.correct;
+      const delay = timedOut ? TIMEOUT_FEEDBACK_TIME : ANSWER_FEEDBACK_TIME;
+      advanceAt = now + delay;
+
+      answers.push({
+        questionIndex: index,
+        questionText: question.question,
+        userAnswer,
+        correctAnswer: question.correct,
+        isCorrect,
+        timeSpentMs: Math.round(now - startedAt),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      const correctIndex = question.answers.indexOf(question.correct);
+      const correctChoice = choices[correctIndex];
+      correctChoice.classList.add("is-correct");
+      setStatus(correctChoice.querySelector(".answer-status"), isCorrect ? "Correct" : "Bonne réponse", true);
+
+      if (isCorrect) {
+        correctChoice.classList.add("has-shimmer");
+      } else if (!timedOut) {
+        const wrongChoice = choices[selectedIndex];
+        wrongChoice.classList.add("is-wrong");
+        setStatus(wrongChoice.querySelector(".answer-status"), "Incorrect", false);
       }
 
-      const { emailSent } = await response.json();
-      savingP.innerText = emailSent
-        ? `Résultats envoyés par email à ${currentUser.email} !`
-        : "Résultats enregistrés !";
-      savingP.className = "saving-message success";
-    } catch (error) {
-      console.error("Error saving results:", error);
-      savingP.innerText = "Erreur lors de l'enregistrement des résultats.";
-      savingP.className = "saving-message error";
+      const moveFocus = fieldset.contains(document.activeElement);
+      fieldset.disabled = true;
+      card.classList.add("is-answered");
+      timer.classList.remove("timer-warning");
+      progress.setAttribute("aria-valuenow", answers.length);
+      progress.style.setProperty("--progress", answers.length / questions.length);
+
+      card.querySelector(".feedback-title").textContent =
+        timedOut ? "Temps écoulé" : isCorrect ? "Bonne réponse !" : "Réponse incorrecte";
+      if (!isCorrect) {
+        card.querySelector(".feedback-detail").textContent = `Bonne réponse · ${formatAnswer(question.correct)}`;
+      }
+
+      buttonLabel.textContent = answers.length === questions.length ? "Voir le bilan" : "Question suivante";
+      countdown.textContent = `(${delay / 1000} s)`;
+      submitButton.disabled = false;
+      if (moveFocus) submitButton.focus();
+    }
+
+    async function advance() {
+      if (advancing) return;
+      advancing = true;
+      window.clearInterval(interval);
+      submitButton.disabled = true;
+      card.classList.add("is-leaving");
+
+      const exit = card.getAnimations().find((animation) => animation.animationName === "question-out");
+      await exit?.finished.catch(() => {});
+
+      if (answers.length === questions.length) {
+        showResults(subject, user, answers);
+      } else {
+        showQuestion();
+      }
     }
   }
+}
 
-  function timeoutSubmit() {
-    disableAllAnswers();
+function showResults(subject, user, answers) {
+  const results = cloneTemplate("results-template");
+  const score = answers.filter((answer) => answer.isCorrect).length;
+  const total = answers.length;
+  const percent = Math.round((score / total) * 100);
+  const review = results.querySelector(".review-list");
+  let streak = 0;
+  let bestStreak = 0;
+  let totalTimeMs = 0;
 
-    const timeSpentMs = Date.now() - questionStartTime;
-    const question = Questions[currentQuestion];
-
-    answersData.push({
-      questionIndex: currentQuestion,
-      questionText: question.question,
-      userAnswer: null,
-      correctAnswer: question.correct,
-      isCorrect: false,
-      timeSpentMs,
-    });
-
-    const correctAnswerId = formatId(question.correct);
-    const correctElement = document.querySelector(`label[for="${correctAnswerId}"]`);
-    if (correctElement) correctElement.classList.add("correct");
-
-    const timeoutMsg = document.createElement("p");
-    timeoutMsg.innerText = `Temps écoulé ! La bonne réponse était : ${question.correct}`;
-    const btn = app.querySelector("button");
-    if (btn) btn.remove();
-    app.appendChild(timeoutMsg);
-
-    setTimeout(() => {
-      currentQuestion++;
-      displayQuestion(currentQuestion);
-    }, 2000);
+  for (const answer of answers) {
+    streak = answer.isCorrect ? streak + 1 : 0;
+    bestStreak = Math.max(streak, bestStreak);
+    totalTimeMs += answer.timeSpentMs;
+    review.append(createReviewRow(answer));
   }
 
-  function submit() {
-    const selectedAnswer = app.querySelector('input[name="answer"]:checked');
-
-    if (!selectedAnswer) {
-      return;
-    }
-
-    if (currentQuestionTimer) {
-      clearInterval(currentQuestionTimer);
-      currentQuestionTimer = null;
-    }
-
-    disableAllAnswers();
-
-    const timeSpentMs = Date.now() - questionStartTime;
-    const value = selectedAnswer.value;
-    const question = Questions[currentQuestion];
-    const isCorrect = question.correct === value;
-
-    if (isCorrect) {
-      score++;
-    }
-
-    answersData.push({
-      questionIndex: currentQuestion,
-      questionText: question.question,
-      userAnswer: value,
-      correctAnswer: question.correct,
-      isCorrect,
-      timeSpentMs,
-    });
-
-    showFeedback(isCorrect, question.correct, value);
-    displayNextQuestionButton(() => {
-      currentQuestion++;
-      displayQuestion(currentQuestion);
-    });
-
-    const feedback = getFeedbackMessage(isCorrect, question.correct);
-    app.appendChild(feedback);
-  }
-
-  function createAnswers(answers) {
-    const answersDiv = document.createElement("div");
-    answersDiv.classList.add("answers");
-
-    for (const answer of answers) {
-      const label = getAnswerElement(answer);
-      answersDiv.appendChild(label);
-    }
-
-    return answersDiv;
-  }
-}
-
-function getTitleElement(text) {
-  const title = document.createElement("h3");
-  title.innerText = text;
-  return title;
-}
-
-function formatId(text) {
-  return text.replaceAll(" ", "-").replaceAll('"', "'").toLowerCase();
-}
-
-function getAnswerElement(text) {
-  const label = document.createElement("label");
-  label.innerText = text;
-  const input = document.createElement("input");
-  const id = formatId(text);
-  input.id = id;
-  label.htmlFor = id;
-  input.setAttribute("type", "radio");
-  input.setAttribute("name", "answer");
-  input.setAttribute("value", text);
-  label.appendChild(input);
-  return label;
-}
-
-function getSubmitButton() {
-  const submitButton = document.createElement("button");
-  submitButton.innerText = "Valider";
-  return submitButton;
-}
-
-function showFeedback(isCorrect, correct, answer) {
-  const correctAnswerId = formatId(correct);
-  const correctElement = document.querySelector(
-    `label[for="${correctAnswerId}"]`,
-  );
-
-  const selectedAnswerId = formatId(answer);
-  const selectedElement = document.querySelector(
-    `label[for="${selectedAnswerId}"]`,
-  );
-
-  correctElement.classList.add("correct");
-  selectedElement.classList.add(isCorrect ? "correct" : "incorrect");
-}
-
-function getFeedbackMessage(isCorrect, correct) {
-  const paragraph = document.createElement("p");
-  paragraph.innerText = isCorrect
-    ? "Bravo ! C'est la bonne réponse"
-    : `Mauvaise réponse...la bonne réponse était ${correct}`;
-
-  return paragraph;
-}
-
-function getProgressBar(max, value) {
-  const progress = document.createElement("progress");
-  progress.setAttribute("max", max);
-  progress.setAttribute("value", value);
-  return progress;
-}
-
-function displayNextQuestionButton(callback) {
-  let remainingTimeout = TIMEOUT;
-
-  app.querySelector("button").remove();
-
-  const getButtonText = () => `Suivant (${remainingTimeout / 1000}s)`;
-
-  const nextButton = document.createElement("button");
-  nextButton.innerText = getButtonText();
-  app.appendChild(nextButton);
-
-  const interval = setInterval(() => {
-    remainingTimeout -= 1000;
-    nextButton.innerText = getButtonText();
-  }, 1000);
-
-  const timeout = setTimeout(() => {
-    handleNextQuestion();
-  }, TIMEOUT);
-
-  const handleNextQuestion = () => {
-    clearInterval(interval);
-    clearTimeout(timeout);
-    callback();
-  };
-
-  nextButton.addEventListener("click", () => {
-    handleNextQuestion();
+  const averageTime = (totalTimeMs / total / 1000).toFixed(1).replace(".", ",");
+  results.querySelector(".results-subject").textContent = subject;
+  results.querySelector(".correct-count").textContent = `${score} / ${total}`;
+  results.querySelector(".best-streak").textContent = bestStreak;
+  results.querySelector(".average-time").textContent = `${averageTime} s`;
+  results.querySelector(".review-count").textContent = `${total} question${total === 1 ? "" : "s"}`;
+  results.querySelector(".score-accessible").textContent = `${percent} %`;
+  const replayButton = results.querySelector(".replay-button");
+  replayButton.addEventListener("click", async () => {
+    replayButton.disabled = true;
+    await leaveScreen(results);
+    showScreen(registration);
   });
+
+  showScreen(results);
+  animateScore(results.querySelector(".score-percent"), percent);
+  saveResults(user, score, answers, results.querySelector(".saving-message"));
 }
 
-function disableAllAnswers() {
-  const radioInputs = document.querySelectorAll('input[type="radio"]');
+function createReviewRow(answer) {
+  const row = cloneTemplate("review-template");
+  const timedOut = answer.userAnswer === null;
+  row.style.setProperty("--order", Math.min(answer.questionIndex, 8));
+  row.querySelector(".review-number").textContent = formatNumber(answer.questionIndex + 1);
+  row.querySelector(".review-question").textContent = answer.questionText;
+  row.querySelector(".review-correct strong").textContent = formatAnswer(answer.correctAnswer);
 
-  for (const radio of radioInputs) {
-    radio.disabled = true;
+  const chosen = row.querySelector(".review-chosen");
+  chosen.hidden = timedOut || answer.isCorrect;
+  if (!chosen.hidden) chosen.querySelector("strong").textContent = formatAnswer(answer.userAnswer);
+
+  const statusLabel = timedOut ? "Temps écoulé" : answer.isCorrect ? "Correct" : "Incorrect";
+  setStatus(row.querySelector(".review-status"), statusLabel, answer.isCorrect);
+  return row;
+}
+
+function animateScore(display, percent) {
+  if (percent === 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    display.textContent = `${percent} %`;
+    return;
+  }
+
+  const start = performance.now();
+  display.textContent = "0 %";
+
+  function frame(now) {
+    if (!display.isConnected) return;
+    const progress = Math.min((now - start) / 700, 1);
+    const eased = 1 - (1 - progress) ** 3;
+    display.textContent = `${Math.round(eased * percent)} %`;
+    if (progress < 1) window.requestAnimationFrame(frame);
+  }
+
+  window.requestAnimationFrame(frame);
+}
+
+async function saveResults(user, score, answers, message) {
+  message.textContent = "Enregistrement en cours…";
+  try {
+    const response = await fetch(`${API_URL}/results`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: user.id,
+        score,
+        totalQuestions: answers.length,
+        answers,
+      }),
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const { emailSent } = await response.json();
+    message.textContent = emailSent
+      ? `Résultat envoyé à ${user.email}.`
+      : "Résultat enregistré.";
+    message.classList.add("status-correct");
+  } catch (error) {
+    console.error("Erreur lors de l’enregistrement du résultat", error);
+    message.textContent = "Le résultat n’a pas pu être enregistré.";
+    message.classList.add("status-wrong");
   }
 }
