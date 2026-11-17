@@ -1,0 +1,9 @@
+acr_name            = "quizappremplacecenom"
+location            = "REGION_AUTORISEE"
+resource_group_name = "rg-quiz-app"
+
+# Décommente cette ligne si le groupe de ressources existe déjà.
+# use_existing_resource_group = true
+
+# Renseigne le sujet affiché pour main dans ton fork si tu utilises GitHub Actions.
+# github_oidc_subject = "repo:proprietaire/fork-quiz:ref:refs/heads/main"

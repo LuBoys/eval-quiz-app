@@ -90,9 +90,11 @@ else
     --ingress internal --target-port 3007 --secrets "${backend_secrets[@]}" --env-vars "${backend_env[@]}"
 fi
 
-backend_host=$(az containerapp show --resource-group "$resource_group" --name "$backend_app" \
+backend_fqdn=$(az containerapp show --resource-group "$resource_group" --name "$backend_app" \
   --query properties.configuration.ingress.fqdn --output tsv --only-show-errors)
-: "${backend_host:?Le backend doit avoir une entrée réseau interne}"
+: "${backend_fqdn:?Le backend doit avoir une entrée réseau interne}"
+backend_domain=${backend_fqdn#"$backend_app."}
+backend_host="$backend_app.internal.${backend_domain#internal.}"
 
 if grep -Fxq -- "$frontend_app" <<< "$apps"; then
   az containerapp update --resource-group "$resource_group" --name "$frontend_app" \

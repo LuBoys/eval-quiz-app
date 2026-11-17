@@ -1,5 +1,7 @@
 # GitHub Actions et Azure
 
+Le déploiement Terraform `quizapp-lucas-mohamed` fournit au workflow les noms des ressources Azure par les sorties `deployment_variables` et `github_login_variables`. Les commandes Azure CLI plus bas servent au parcours du jalon J3. [Guide Terraform](12-terraform-azure.md)
+
 ## Ce que fait le workflow
 
 ```mermaid
@@ -22,23 +24,48 @@ Dans le fork du groupe, ouvre une Pull Request vers `main`. Une fois le premier 
 
 ## Préparer Azure une fois
 
-Connecte-toi à Azure CLI et vérifie l’abonnement et la région autorisée. Les commandes ci-dessous créent un groupe dédié au quiz. Choisis un nom de registre disponible avant de les lancer. [Guide des identités et de la connexion à ACR](https://learn.microsoft.com/en-us/azure/container-apps/managed-identity-image-pull)
+### Commandes déjà exécutées
+
+Le 17 novembre 2026, `az account show` a confirmé que l’abonnement **Azure for Students** était actif. Les commandes suivantes ont créé le groupe du quiz, puis l’identité de déploiement. Azure a accepté l’identité en `belgiumcentral` après avoir refusé sa création avec la région par défaut du groupe.
 
 ```bash
-az login
+az group create -n rg-quiz-app -l francecentral -o none
+az identity create -g rg-quiz-app -n quiz-github-deploy \
+  --location belgiumcentral --query clientId -o tsv
+```
+
+L’identifiant affiché par la deuxième commande va dans la variable GitHub `AZURE_CLIENT_ID`. La création de la règle OIDC qui autorise `main` figure plus bas.
+
+### Continuer la préparation
+
+Dans Azure Cloud Shell, vérifie l’abonnement et affiche les régions autorisées par ses règles. [Documentation des règles Azure CLI](https://learn.microsoft.com/en-us/cli/azure/policy/assignment#az-policy-assignment-list)
+
+```bash
 az account show --query '{abonnement:name, etat:state}' --output table
+az policy assignment list --filter 'atScope()' \
+  --query "[?parameters.allowedLocations || parameters.listOfAllowedLocations].{Regle:displayName,Regions:parameters.allowedLocations.value || parameters.listOfAllowedLocations.value}" \
+  --output json
+```
+
+Si la liste est vide, sélectionne ton abonnement dans Azure Policy. Ouvre la règle **Allowed resource deployment regions** et regarde **Parameters → Allowed locations**. [Affectations Azure Policy](https://portal.azure.com/#view/Microsoft_Azure_Policy/PolicyMenuBlade/~/Assignments)
+
+Remplace `REGION_AUTORISEE` par un code de région autorisé et choisis un nom de registre disponible. Si ton groupe existe déjà, garde-le. Azure permet d’y placer des ressources dans une autre région. Pour vérifier les profils Container Apps d’une région, utilise `az containerapp env workload-profile list-supported --location belgiumcentral --output table` en adaptant le code si besoin. [Régions et groupes de ressources](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/overview#which-location-should-i-use-for-my-resource-group) · [Profils Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/workload-profiles-manage-cli#list-available-workload-profiles)
+
+```bash
 az extension add --name containerapp --upgrade
 
 export AZURE_RESOURCE_GROUP=rg-quiz-app
 export ACR_NAME=quizappremplacecenom
 export AZURE_CONTAINERAPPS_ENVIRONMENT=quiz-env
 export AZURE_ACR_PULL_IDENTITY=quiz-acr-pull
-region=francecentral
+region=REGION_AUTORISEE
 deploy_identity=quiz-github-deploy
 
-az group create --name "$AZURE_RESOURCE_GROUP" --location "$region"
+if [ "$(az group exists --name "$AZURE_RESOURCE_GROUP" --output json)" = false ]; then
+  az group create --name "$AZURE_RESOURCE_GROUP" --location "$region"
+fi
 az acr create --name "$ACR_NAME" --resource-group "$AZURE_RESOURCE_GROUP" \
-  --sku Basic --role-assignment-mode rbac
+  --location "$region" --sku Basic --role-assignment-mode rbac
 az acr config authentication-as-arm update --registry "$ACR_NAME" --status enabled
 az containerapp env create --name "$AZURE_CONTAINERAPPS_ENVIRONMENT" \
   --resource-group "$AZURE_RESOURCE_GROUP" --location "$region" --logs-destination none
@@ -48,7 +75,9 @@ Si Azure demande d’enregistrer un fournisseur de ressources, enregistre le fou
 
 ```bash
 for identity in "$AZURE_ACR_PULL_IDENTITY" "$deploy_identity"; do
-  az identity create --name "$identity" --resource-group "$AZURE_RESOURCE_GROUP"
+  if ! az identity show --name "$identity" --resource-group "$AZURE_RESOURCE_GROUP" --output none 2>/dev/null; then
+    az identity create --name "$identity" --resource-group "$AZURE_RESOURCE_GROUP" --location "$region"
+  fi
 done
 
 group_id=$(az group show --name "$AZURE_RESOURCE_GROUP" --query id --output tsv)
@@ -92,8 +121,10 @@ Dans **Settings → Secrets and variables → Actions** sur le fork, ajoute les 
 | `ACR_NAME` | Nom du registre créé pour le quiz |
 | `AZURE_CONTAINERAPPS_ENVIRONMENT` | Nom de l’environnement Container Apps |
 | `AZURE_ACR_PULL_IDENTITY` | Nom de l’identité qui a le rôle `AcrPull` |
+| `AZURE_FRONTEND_APP` | Nom de la Container App publique |
+| `AZURE_BACKEND_APP` | Nom de la Container App interne |
 
-Dans l’onglet **Secrets**, ajoute `ADMIN_PASSWORD`, `JWT_SECRET` et `DATABASE_URL`. `DATABASE_URL` est l’URL de Neon utilisée par le backend. L’envoi d’emails est facultatif. Pour l’activer, ajoute aussi `RESEND_API_KEY` dans **Secrets** et `FROM_EMAIL` dans **Variables**. Le compte admin utilise `admin` par défaut. Les variables `ADMIN_USERNAME`, `AZURE_FRONTEND_APP` et `AZURE_BACKEND_APP` permettent de choisir d’autres noms.
+Dans l’onglet **Secrets**, ajoute `ADMIN_PASSWORD`, `JWT_SECRET` et `DATABASE_URL`. `DATABASE_URL` est l’URL de Neon utilisée par le backend. L’envoi d’emails est facultatif. Pour l’activer, ajoute aussi `RESEND_API_KEY` dans **Secrets** et `FROM_EMAIL` dans **Variables**. Le compte admin utilise `admin` par défaut et la variable `ADMIN_USERNAME` permet de choisir un autre identifiant.
 
 Au premier déploiement, le script crée le backend interne sur le port 3007 et le frontend public sur le port 8080. Le frontend appelle le backend en HTTPS à l’intérieur du même environnement. Les fusions suivantes mettent à jour leurs images. Le job vérifie les révisions et teste `/health` à l’adresse publique du quiz. [Script de déploiement](../scripts/deploy.sh) · [Réseau dans Azure Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/connect-apps)
 
