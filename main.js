@@ -460,8 +460,8 @@ async function saveResults(user, score, answers, message) {
     const { emailSent } = await response.json();
     message.textContent = emailSent
       ? `Résultat envoyé à ${user.email}.`
-      : "Résultat enregistré.";
-    message.classList.add("status-correct");
+      : "Résultat enregistré, mais l’e-mail n’a pas pu être envoyé.";
+    message.classList.add(emailSent ? "status-correct" : "status-wrong");
   } catch (error) {
     console.error("Erreur lors de l’enregistrement du résultat", error);
     message.textContent = "Le résultat n’a pas pu être enregistré.";

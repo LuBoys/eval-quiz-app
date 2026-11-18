@@ -61,7 +61,7 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 const JWT_SECRET = process.env.JWT_SECRET || "change-this-secret";
 const FROM_EMAIL =
-  process.env.FROM_EMAIL || "Quiz App <noreply@notifications.labformation.fr>";
+  process.env.FROM_EMAIL || "Quiz App <noreply@g07.labformation.fr>";
 
 // Auth middleware for admin routes
 function authenticateAdmin(req, res, next) {
@@ -337,7 +337,7 @@ app.post("/api/results", resultsLimiter, async (req, res) => {
 
     let emailSent = false;
     if (resend) {
-      const userQuery = await pool.query(
+      const userQuery = await client.query(
         "SELECT firstname, email FROM users WHERE id = $1",
         [userId]
       );
