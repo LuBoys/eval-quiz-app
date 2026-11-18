@@ -949,3 +949,7 @@ h1[tabindex="-1"]:focus {
     transform: none;
   }
 }
+
+#registration-title{
+  color: #105fde;
+}
