@@ -1,137 +1,105 @@
 # 08 - Documentation technique de Quiz App
 
-> Documentation de référence destinée aux étudiants. Elle décrit le fonctionnement existant de l'application, sans fournir les Dockerfiles, le fichier Docker Compose, les scripts Azure CLI ou les pipelines à réaliser pendant l'évaluation.
+Ce guide décrit l’application et les réglages de la solution du groupe. Pour voir comment démarrer le quiz ou le mettre en ligne, consulte les guides [Docker Compose](10-demarrage-local.md) et [Architecture Azure](13-architecture-cloud.md).
 
 ## 1. Présentation
 
-**Quiz App** est une application de quiz sur des sujets techniques (notamment DevOps et Docker). Elle comporte une inscription utilisateur, l'enregistrement des résultats dans PostgreSQL, des notifications par email via Resend et un espace d'administration.
+**Quiz App** propose des questionnaires sur des sujets techniques comme DevOps et Docker. Elle permet de s’inscrire, d’enregistrer ses résultats dans PostgreSQL et de les consulter dans un espace d’administration. L’envoi des résultats par email via Resend est facultatif.
 
-Les questionnaires sont définis dans le code source, notamment dans `questions_docker.js`, d'après l'arborescence fournie. Une modification de questionnaire pourra servir de scénario de test pour une Pull Request ou Merge Request et la chaîne CI/CD.
+Le frontend charge les questionnaires dans les fichiers `questions_*.js`. Le sujet `docker` utilise [questions_docker.js](../questions_docker.js). Une modification de ce fichier permet de montrer le parcours d’une Pull Request jusqu’au quiz en ligne.
 
-## 2. Composants et ports connus
+## 2. Composants et ports
 
-| Composant  | Technologie / rôle                                              | Port ou point d'accès connu                                                                                               |
-| ---------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Frontend   | Application web HTML, JavaScript, CSS ; développement avec Vite | **5173** en développement (`npm run dev` à la racine)                                                                     |
-| Nginx      | Serveur web et reverse proxy en production                      | **8087 sur l'hôte** dans la configuration Docker Compose d'origine ; Nginx reçoit le trafic sur **80 dans son conteneur** |
-| Backend    | API **Node.js / Express** (`backend/server.js`)                 | **3007** (`cd backend && npm run dev`)                                                                                    |
-| PostgreSQL | Base relationnelle, résultats et données persistantes           | **5432** (port PostgreSQL employé dans l'URL de connexion d'origine)                                                      |
-| Resend     | Service tiers d'envoi d'emails                                  | API externe ; clé de configuration nécessaire                                                                             |
+| Composant | Rôle | Port ou adresse |
+| --- | --- | --- |
+| Vite | Serveur de développement du frontend | `5173` quand tu lances `npm run dev` à la racine |
+| Nginx | Sert les pages et transmet les requêtes au backend | `8080` dans le conteneur, `127.0.0.1:8087` par défaut sur ton ordinateur et adresse HTTPS publique sur Azure |
+| Backend Node.js | API Express dans `backend/server.js` | `3007` sur le réseau interne de Docker Compose ou de Container Apps |
+| PostgreSQL | Stocke les utilisateurs, les scores et les réponses | `db:5432` avec la base Docker Compose, adresse Neon dans `DATABASE_URL` sur Azure |
+| Resend | Envoie les résultats par email | Service externe utilisé si une clé est configurée |
 
-**Attention :** le port `5173` est le port de développement Vite, pas nécessairement le port à exposer pour le frontend conteneurisé en production. Le port `8087` est le port d'accès local de la solution Docker Compose initiale ; les étudiants devront concevoir leur propre exposition réseau.
+Avec Docker Compose, ouvre [le quiz](http://localhost:8087) ou [l’administration](http://localhost:8087/gestion-quiz). Si tu modifies `QUIZ_PORT`, utilise le port choisi. Sur Azure, ouvre les mêmes chemins `/` et `/gestion-quiz` depuis l’adresse publique du frontend. [Configuration Nginx](../nginx/nginx.conf)
 
-### Points d'entrée fonctionnels documentés
+## 3. Développer hors Docker
 
-- Quiz : `http://localhost:8087`
-- Administration : `http://localhost:8087/gestion-quiz`
-
-Ces URL correspondent à l'ancienne configuration locale Docker Compose. Les URL des nouvelles solutions seront définies par les étudiants.
-
-## 3. Démarrer le projet hors Docker
-
-**Prérequis documenté :** Node.js 20 ou supérieur.
+Les Dockerfiles utilisent Node.js 24. Avec Node.js installé sur ta machine, tu peux lancer les serveurs de développement. Pour essayer le parcours complet avec le proxy Nginx et la base locale, utilise [Docker Compose](10-demarrage-local.md).
 
 ### Frontend
 
-À la racine du projet :
+Depuis la racine du projet, lance Vite.
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Adresse de développement indiquée dans le README initial : `http://localhost:5173`.
+Vite sert les pages à l’adresse `http://localhost:5173`.
 
 ### Backend
 
-Dans un autre terminal :
+Depuis la racine, ouvre un autre terminal pour lancer Express.
 
 ```bash
 cd backend
-npm install
+npm ci
 npm run dev
 ```
 
-Adresse de développement indiquée dans le README initial : `http://localhost:3007`.
-
-Le fonctionnement des opérations dépendantes de PostgreSQL suppose une base accessible et correctement initialisée. Le README d'origine ne donne pas de procédure autonome complète de lancement PostgreSQL hors Docker.
+Express écoute sur `http://localhost:3007` par défaut. Pour tester l’écriture et la lecture des résultats, donne au backend les paramètres d’une base PostgreSQL accessible et initialisée.
 
 ## 4. Variables d'environnement
 
-Le projet d'origine documente les variables suivantes :
+| Variable | Rôle |
+| --- | --- |
+| `QUIZ_PORT` | Port utilisé dans le navigateur avec Docker Compose. |
+| `BACKEND_URL` | Adresse que Nginx utilise pour joindre le backend. Elle vaut `http://backend:3007` par défaut dans l’image Docker. Azure utilise une adresse HTTPS interne. |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Accès et nom de la base locale. Compose transmet ces valeurs au backend via `PGUSER`, `PGPASSWORD`, `PGDATABASE` et lui indique le serveur avec `PGHOST=db`. |
+| `DATABASE_URL` | URL de connexion à un PostgreSQL externe. En local, laisse-la vide pour utiliser `db`. Sur Azure, elle pointe vers Neon pour enregistrer les résultats. |
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD` | Identifiant et mot de passe du panneau d’administration. |
+| `JWT_SECRET` | Clé que le backend utilise pour signer et vérifier les jetons de connexion admin. |
+| `RESEND_API_KEY`, `FROM_EMAIL` | Clé Resend et adresse d’expédition pour envoyer les résultats par email. |
 
-| Variable            | Rôle                                                                       |
-| ------------------- | -------------------------------------------------------------------------- |
-| `POSTGRES_USER`     | Utilisateur de PostgreSQL local                                            |
-| `POSTGRES_PASSWORD` | Mot de passe PostgreSQL local                                              |
-| `POSTGRES_DB`       | Nom de la base locale                                                      |
-| `DATABASE_URL`      | URL de connexion PostgreSQL fournie au backend dans le déploiement initial |
-| `RESEND_API_KEY`    | Clé d'API du service d'email                                               |
-| `ADMIN_USERNAME`    | Identifiant de l'administrateur                                            |
-| `ADMIN_PASSWORD`    | Mot de passe administrateur                                                |
-| `JWT_SECRET`        | Secret JWT                                                                 |
-
-La configuration `docker-compose.yml` montrée dans le README initial construit une URL de connexion locale de la forme `postgres://<utilisateur>:<mot-de-passe>@db:5432/<base>` ; le nom `db` fait référence au service PostgreSQL local. La variable `FROM_EMAIL` figure également dans l'extrait de configuration backend transmis pendant la préparation du projet : vérifier son caractère obligatoire dans le code.
-
-**Sécurité :** conserver les secrets hors du dépôt. Le fichier `.env.example`, s'il est fourni, doit contenir seulement des valeurs fictives et des indications de configuration.
+En local, renseigne les vraies valeurs dans `.env`. En ligne, le backend reçoit ses secrets via Azure Container Apps. GitHub Actions lit les secrets du fork lors du déploiement. [Exemple de fichier local](../.env.example) · [Variables et secrets sur GitHub](11-configurer-cicd.md#renseigner-github-avant-la-fusion)
 
 ## 5. PostgreSQL et initialisation
 
-Le code d'origine comporte un fichier `database/init.sql`, décrit comme le **schéma PostgreSQL**. Les étudiants doivent s'en servir pour déterminer comment initialiser la base de données locale puis, le cas échéant, la base PostgreSQL externe.
+Le fichier [database/init.sql](../database/init.sql) crée les tables `users`, `quiz_results` et `answers`.
 
-- **En local :** utiliser une instance PostgreSQL orchestrée par Docker Compose, avec stockage persistant.
-- **Sur Azure :** connecter le backend à une instance PostgreSQL externe compatible, par exemple Neon. Le choix et la configuration doivent être documentés ; la connexion doit être sécurisée.
-- **Validation :** création d'un utilisateur, réponse à un quiz, conservation des résultats après redémarrage.
-
-Les modalités exactes d'exécution du fichier SQL et la compatibilité du backend avec la configuration TLS de Neon sont à vérifier dans le code et par des tests. Le README seul ne les confirme pas.
+- **En local**, le conteneur PostgreSQL lance le script au premier démarrage d’un volume vide. Le volume `quiz_data` garde les données quand tu recrées les conteneurs.
+- **Sur Azure**, le backend se connecte à Neon avec une connexion chiffrée. Initialise la base Neon vide avec le même script SQL, puis vérifie que tu peux enregistrer et retrouver un score dans l’administration. [Configuration Neon](10-demarrage-local.md#utiliser-neon-depuis-docker) · [Preuve du test Neon](../preuves/J5/persistance-neon.md)
 
 ## 6. API documentée
 
 ### Routes publiques
 
-| Méthode | Route          | Fonction                                                |
-| ------- | -------------- | ------------------------------------------------------- |
-| `POST`  | `/api/users`   | Créer un utilisateur                                    |
-| `POST`  | `/api/results` | Sauvegarder les résultats et déclencher l'envoi d'email |
-| `GET`   | `/health`      | Vérification de santé                                   |
+| Méthode | Route | Fonction |
+| --- | --- | --- |
+| `POST` | `/api/users` | Créer un utilisateur |
+| `POST` | `/api/results` | Enregistrer le résultat et envoyer un email si Resend est configuré |
+| `GET` | `/health` | Vérifier que le serveur répond |
 
 ### Routes administrateur (JWT)
 
-| Méthode  | Route                            | Fonction                         |
-| -------- | -------------------------------- | -------------------------------- |
-| `POST`   | `/api/admin/login`               | Authentification administrateur  |
-| `GET`    | `/api/admin/results`             | Liste paginée des résultats      |
-| `GET`    | `/api/admin/results/export`      | Export CSV                       |
+| Méthode | Route | Fonction |
+| --- | --- | --- |
+| `POST` | `/api/admin/login` | Authentification administrateur |
+| `GET` | `/api/admin/results` | Liste paginée des résultats |
+| `GET` | `/api/admin/results/export` | Export CSV |
 | `DELETE` | `/api/admin/results/old?days=30` | Suppression de résultats anciens |
+| `DELETE` | `/api/admin/results/all` | Suppression de tous les résultats |
 
-Les corps de requête, codes HTTP, réponses JSON et la dépendance éventuelle de `/health` à la base de données ne sont **pas précisés dans le README d'origine** : consulter `backend/server.js` pour les vérifier.
+`GET /health` répond HTTP 200 avec `{"status":"ok"}` sans interroger PostgreSQL. Pour vérifier que la base fonctionne aussi, termine un quiz et retrouve le résultat dans l’administration. [Code de l’API](../backend/server.js)
 
-## 7. Organisation du code fourni
+## 7. Où trouver le code et la configuration
 
-Le dépôt initial décrit les fichiers applicatifs suivants :
-
-```text
-quiz-app-evaluation/
-├── README.md                        # Consignes de l'évaluation
-├── docs/                            # Documents pédagogiques
-├── backend/
-│   ├── package.json
-│   └── server.js                   # API Express
-├── database/
-│   └── init.sql                    # Schéma PostgreSQL
-├── nginx/
-│   └── nginx.conf                  # Configuration existante, si conservée
-├── public/
-│   ├── admin.js
-│   └── admin.css
-├── index.html
-├── gestion-quiz.html
-├── main.js
-├── style.css
-└── questions_docker.js
-```
-
-Cette arborescence est indicative et devra être confrontée au dépôt réellement fourni. Les fichiers de solution d'origine (`Dockerfile`, `backend/Dockerfile`, `database/Dockerfile`, `docker-compose.yml`, `.gitlab-ci.yml`) ne font pas partie du dépôt de départ des étudiants.
+| Fichier ou dossier | Contenu |
+| --- | --- |
+| `index.html`, `main.js`, `questions_*.js` | Page, logique et questions du quiz. |
+| `gestion-quiz.html`, `public/admin.js` | Interface d’administration. |
+| `backend/server.js`, `database/init.sql` | Routes de l’API et schéma PostgreSQL. |
+| `docker-compose.yml`, `nginx/nginx.conf` | Services locaux et transfert des requêtes vers l’API. |
+| `terraform/infra/`, `terraform/apps/` | Ressources Azure et configuration des deux applications. |
+| `.github/workflows/github-actions.yml`, `scripts/` | Workflow GitHub Actions et scripts de scan, de déploiement et de nettoyage. |
 
 ## 8. Mission d'analyse préalable — Jalon 1
 
