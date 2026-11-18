@@ -27,6 +27,22 @@ curl -fsS http://localhost:8087/health
 
 Si le port 8087 est déjà utilisé, change `QUIZ_PORT` dans `.env` et adapte l’adresse du navigateur. Pour lire les messages de démarrage, utilise `docker compose logs --tail=50`.
 
+## Voir les changements de design automatiquement
+
+Depuis la racine du projet, lance le mode de développement :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
+```
+
+Ouvre [le quiz](http://localhost:8087). Quand tu enregistres une modification du frontend, Vite actualise la page ou son style automatiquement. Le backend et la base restent accessibles pour tester le quiz. La première installation des dépendances peut prendre un peu de temps.
+
+Pour revenir à la version construite avec Nginx :
+
+```bash
+docker compose up -d --build --wait
+```
+
 ## Les trois services
 
 ```mermaid
