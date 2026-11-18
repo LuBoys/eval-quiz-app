@@ -58,3 +58,19 @@ Ce bloc affiche toutes les alertes pour refaire le rapport complet.
   done
 )
 ```
+
+## Contrôle complémentaire du 18 novembre 2026
+
+Après la mise à jour de Vite et de Resend, Trivy 0.76.2 a analysé les images construites sur le poste ainsi que les deux fichiers `package-lock.json`, en incluant les dépendances de développement. Sa base de vulnérabilités avait été mise à jour le 18 novembre à 8 h 15, heure de Paris.
+
+| Élément analysé | Avant la mise à jour | Après la mise à jour |
+| --- | --- | --- |
+| Images frontend et PostgreSQL | 0 alerte | 0 alerte |
+| Image backend | 2 alertes MEDIUM | 0 alerte |
+| Dépendances de développement frontend | 36 alertes, dont 11 HIGH | 1 alerte HIGH |
+
+Les trois images ont été analysées en `linux/arm64` ; les images frontend et backend l'ont aussi été en `linux/amd64`. Aucun de ces scans d'image ne relève de vulnérabilité. Ces résultats ne vérifient pas les images déjà déployées sur Azure.
+
+L'alerte restante concerne `picomatch` 4.0.7, une dépendance de Vite utilisée pendant le développement et la construction. Trivy signale [CVE-2026-112366](https://nvd.nist.gov/vuln/detail/CVE-2026-112366), qui peut bloquer le programme avec certains motifs de recherche. Au moment du scan, Trivy n'indique pas de version officielle corrigée et [la demande de correctif est toujours ouverte](https://github.com/micromatch/picomatch/issues/239). La présence du paquet ne suffit pas à établir si la faille est exploitable dans le projet. En mode Docker Compose, le port du serveur de développement reste lié à `127.0.0.1` sur le poste.
+
+Les vérifications ont couvert la construction des images ARM64 et AMD64, le lancement d'un quiz dans le navigateur, le mode développement, l'enregistrement de résultats et les réponses de succès et d'échec de Resend simulées sans envoi réel.
